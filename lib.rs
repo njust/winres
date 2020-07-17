@@ -52,7 +52,6 @@ use std::collections::HashMap;
 use std::io;
 use std::io::prelude::*;
 use std::fs;
-use std::error::Error;
 
 extern crate toml;
 
@@ -370,7 +369,7 @@ impl WindowsResource {
 
     /// Write a resource file with the set values
     pub fn write_resource_file<P: AsRef<Path>>(&self, path: P) -> io::Result<()> {
-        let mut f = try!(fs::File::create(path));
+        let mut f = fs::File::create(path)?;
         // we don't need to include this, we use constants instead of macro names
         // try!(write!(f, "#include <winver.h>\n"));
 
@@ -383,12 +382,12 @@ impl WindowsResource {
                 VersionInfo::FILEVERSION |
                 VersionInfo::PRODUCTVERSION => {
                     writeln!(f,
-                                  "{:?} {}, {}, {}, {}",
-                                  k,
-                                  (*v >> 48) as u16,
-                                  (*v >> 32) as u16,
-                                  (*v >> 16) as u16,
-                                  *v as u16)?
+                             "{:?} {}, {}, {}, {}",
+                             k,
+                             (*v >> 48) as u16,
+                             (*v >> 32) as u16,
+                             (*v >> 16) as u16,
+                             *v as u16)?
                 }
                 _ => writeln!(f, "{:?} {:#x}", k, v)?,
             };
@@ -452,8 +451,8 @@ impl WindowsResource {
         let status = process::Command::new(windres_path)
             .current_dir(&self.toolkit_path)
             .arg(format!("-I{}", env::var("CARGO_MANIFEST_DIR").unwrap()))
-            .arg(format!("{}", input.display()))
-            .arg(format!("{}", output.display()))
+            .arg(format!("{}", input.display()).replace(r"\", r"\\"))
+            .arg(format!("{}", output.display()).replace(r"\", r"\\"))
             .status()?;
         if !status.success() {
             return Err(io::Error::new(io::ErrorKind::Other, "Could not compile resource file"));
@@ -554,7 +553,7 @@ fn get_sdk() -> io::Result<Vec<PathBuf>> {
         .output()?;
 
     let lines = String::from_utf8(output.stdout)
-        .or_else(|e| Err(io::Error::new(io::ErrorKind::Other, e.description())))?;
+        .or_else(|e| Err(io::Error::new(io::ErrorKind::Other, e.to_string())))?;
     let mut kits: Vec<PathBuf> = Vec::new();
     let mut lines: Vec<&str> = lines.lines().collect();
     lines.reverse();
